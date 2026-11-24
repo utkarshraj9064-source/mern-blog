@@ -1,0 +1,42 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: blog-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  backend:
+    build: ./backend
+    container_name: blog-backend
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      MONGO_URI: ${MONGO_URI}
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "5001:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser (not the container) calls the API, so this is the host-mapped port
+        VITE_API_URL: http://localhost:5001
+    container_name: blog-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
